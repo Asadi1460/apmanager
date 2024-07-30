@@ -103,11 +103,23 @@ st.markdown("""
         text-align: right;
         margin-left: auto;
         margin-right: auto;
+        table-align: center;
         width: 95%;
         font-size: 13px;
     }
+    .dataframe-container {
+        display: flex;
+        justify-content: center;
+    }
+    .dataframe {
+        text-align: center;
+    }
+    .dataframe th, .dataframe td {
+        text-align: center;
+    }
     </style>
 """, unsafe_allow_html=True)
+
 
 # Display titles
 st.markdown('<h1 class="rtl center">دانشگاه آزاد اسلامی واحد داراب</h1>', unsafe_allow_html=True)
@@ -142,8 +154,12 @@ df_to_show.rename(columns=new_column_names, inplace=True)
 
 # Display selected courses
 st.markdown('<h3 class="rtl center">دروس گذرانده</h3>', unsafe_allow_html=True)
-# st.markdown(f'<div class="rtl center">{df_to_show.to_html(classes="rtl-table", index=False)}</div>', unsafe_allow_html=True)
-st.dataframe(df_to_show,hide_index=True)
+
+# Container for centering the table
+st.markdown('<div class="dataframe-container">', unsafe_allow_html=True)
+st.dataframe(df_to_show, hide_index=True,use_container_width=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
 
 # Calculate total units
 total_units = selected_df['Total Units'].sum()
@@ -163,7 +179,12 @@ results_df = pd.DataFrame({
 st.markdown('<h3 class="rtl center">خلاصه وضعیت واحدها</h3>', unsafe_allow_html=True)
 # st.markdown(f'<div class="rtl center">{results_df.to_html(classes="rtl-table", index=False)}</div>', unsafe_allow_html=True)
 results_df = results_df[results_df.columns[::-1]]
-st.dataframe(results_df, hide_index=True)
+
+
+st.markdown('<div class="dataframe-container">', unsafe_allow_html=True)
+st.dataframe(results_df, hide_index=True,use_container_width=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
 
 # Display totals
 total_remain_units = sum(remaining_units.values())
@@ -178,9 +199,7 @@ remaining_courses_df = remaining_courses_df.sort_values(by='نوع درس')
 
 
 st.markdown('<h3 class="rtl center">دروس باقیمانده</h3>', unsafe_allow_html=True)
-# st.markdown(f'<div class="rtl center">{remaining_courses_df.to_html(classes="rtl-table", index=False)}</div>', unsafe_allow_html=True)
-st.dataframe(remaining_courses_df, hide_index=True)
-
+st.dataframe(remaining_courses_df, hide_index=True,use_container_width=True)
 
 # Reverse the columns
 # remaining_courses_df = remaining_courses_df[remaining_courses_df.columns[::-1]]
