@@ -185,7 +185,7 @@ st.markdown(f'<h3 class="rtl center" style="color: blue;">جمع کل واحده
 # Filter remaining courses and display
 remaining_courses_df = filtered_df[~filtered_df['Course Name'].isin(selected_courses)]
 remaining_courses_df.rename(columns=new_column_names, inplace=True)
-remaining_courses_df = remaining_courses_df.sort_values(by='نوع درس')
+remaining_courses_df = remaining_courses_df.sort_values(by=['نوع درس', 'واحد عملی'], ascending=[True, False])
 
 st.markdown('<h3 class="rtl center">دروس باقیمانده</h3>', unsafe_allow_html=True)
 st.dataframe(remaining_courses_df, hide_index=True, use_container_width=True)
