@@ -1,19 +1,92 @@
 import streamlit as st
 import pandas as pd
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib.font_manager as fm
+import arabic_reshaper
+from bidi.algorithm import get_display
 
+import io
+
+
+# Load Persian font
+font_path = 'Iranian Sans.ttf'  # Replace with the path to your Persian font file
+persian_font = fm.FontProperties(fname=font_path)
+
+# Function to reshape and bidi-process Persian text
+def process_persian_text(text):
+    if isinstance(text, str):
+        reshaped_text = arabic_reshaper.reshape(text)
+        return get_display(reshaped_text)
+    return text
+
+def create_pdf(dataframe):
+    # Apply the function to the entire DataFrame
+    processed_df = dataframe.applymap(process_persian_text)
+    processed_columns = [process_persian_text(col) for col in dataframe.columns]
+
+    buffer = io.BytesIO()
+    with PdfPages(buffer) as pdf:
+        fig, ax = plt.subplots(figsize=(8.27, 11.69))  # A4 size in inches
+        
+        ax.axis('tight')
+        ax.axis('off')
+
+        # Create table with processed DataFrame
+        the_table = ax.table(cellText=processed_df.values, colLabels=processed_columns, cellLoc='right', loc='center')
+
+        # Set font properties and style
+        the_table.auto_set_font_size(False)
+        the_table.set_fontsize(12)
+        the_table.auto_set_column_width(col=[i for i in range(len(processed_columns))])
+
+        # Style table cells
+        for key, cell in the_table.get_celld().items():
+            cell.set_text_props(fontproperties=persian_font)
+            cell.set_edgecolor('black')
+            cell.set_linewidth(1)
+
+        pdf.savefig(fig, bbox_inches='tight')
+        plt.close(fig)
+    buffer.seek(0)
+    return buffer
 
 # Cache the data loading function
 @st.cache_data
 def load_data():
     return pd.read_csv('courses.csv')
 
-# Load data
+
+# Load and process data
 df = load_data()
 df['Total Units'] = df['Theoretical Units'] + df['Practical Units']
 
+# Reverse column order from L2R to R2L
+df = df[df.columns[::-1]]
+
+
+
+# Define the required units for each course type
+required_units = {
+    'کاردانی': {
+        'پیش دانشگاهی': 4,
+        'جبرانی': 0,
+        'مقطع قبلی': 0,
+        'عمومی': 18,
+        'اختیاری': 0,
+        'تربیتی': 14,
+        'تخصصی': 43,
+    },
+    'کارشناسی': {
+        'پیش دانشگاهی': 0,
+        'جبرانی': 8,
+        'مقطع قبلی': 4,
+        'عمومی': 10,
+        'اختیاری': 10,
+        'تربیتی': 9,
+        'تخصصی': 43,
+    }
+}
 
 # Use custom CSS for right-to-left direction and centering elements
 st.markdown("""
@@ -30,14 +103,14 @@ st.markdown("""
         text-align: right;
         margin-left: auto;
         margin-right: auto;
-        width: 95%; /* Increased width */
-        font-size: 13px; /* Smaller font size */
+        width: 95%;
+        font-size: 13px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Apply the RTL and center class to the title
-st.markdown('<h1 class="rtl center"> دانشگاه آزاد اسلامی واحد داراب</h1>', unsafe_allow_html=True)
+# Display titles
+st.markdown('<h1 class="rtl center">دانشگاه آزاد اسلامی واحد داراب</h1>', unsafe_allow_html=True)
 st.markdown('<h2 class="rtl center">چک لیست انتخاب واحد</h2>', unsafe_allow_html=True)
 
 # Stage Selection
@@ -53,7 +126,7 @@ selected_courses = st.multiselect('انتخاب دروس گذرانده', filter
 selected_df = filtered_df[filtered_df['Course Name'].isin(selected_courses)]
 df_to_show = selected_df.copy()
 
-# Define the new column names
+# Define and rename columns
 new_column_names = {
     'Stage': 'مقطع',
     'Course Name': 'نام درس',
@@ -65,118 +138,59 @@ new_column_names = {
     'Total Units': 'جمع واحدها'
 }
 
-# Rename the columns
 df_to_show.rename(columns=new_column_names, inplace=True)
 
 # Display selected courses
 st.markdown('<h3 class="rtl center">دروس گذرانده</h3>', unsafe_allow_html=True)
-st.markdown(f'<div class="rtl center">{df_to_show.to_html(classes="rtl-table", index=False)}</div>', unsafe_allow_html=True)
+# st.markdown(f'<div class="rtl center">{df_to_show.to_html(classes="rtl-table", index=False)}</div>', unsafe_allow_html=True)
+st.dataframe(df_to_show,hide_index=True)
 
 # Calculate total units
-total_theoretical_units = selected_df['Theoretical Units'].sum()
-total_practical_units = selected_df['Practical Units'].sum()
 total_units = selected_df['Total Units'].sum()
 
-
-# Define the required units for each course type
-required_units_AD = {
-    'پیش دانشگاهی': 4,
-    'جبرانی': 0,
-    'مقطع قبلی': 0,
-    'عمومی': 18,
-    'اختیاری': 0,
-    'تربیتی': 14,
-    'تخصصی': 43,
-}
-
-required_units_BD = {
-    'پیش دانشگاهی': 0,
-    'جبرانی': 8,
-    'مقطع قبلی': 4,
-    'عمومی': 10,
-    'اختیاری': 10,
-    'تربیتی': 9,
-    'تخصصی': 43,
-}
-
-# Calculate remaining units
-required_units = required_units_AD if stage == 'کاردانی' else required_units_BD
-
 # Calculate units by course type
-units_by_type = selected_df.groupby('Course Type')['Total Units'].sum().reindex(required_units.keys(), fill_value=0)
+units_by_type = selected_df.groupby('Course Type')['Total Units'].sum().reindex(required_units[stage].keys(), fill_value=0)
+remaining_units = {course_type: required_units[stage][course_type] - units_by_type[course_type]
+                   for course_type in required_units[stage].keys()}
 
-remaining_units = {course_type: required_units[course_type] - units_by_type[course_type]
-                   for course_type in required_units.keys()}
-
-# Create a DataFrame to display the results
+# Create and display the results DataFrame
 results_df = pd.DataFrame({
-    'نوع درس': required_units.keys(),
+    'نوع درس': required_units[stage].keys(),
     'واحد گذرانده': units_by_type.values,
-    'واحد الزامی': required_units.values(),
+    'واحد الزامی': required_units[stage].values(),
     'واحد مانده': remaining_units.values()
 })
-
-# Display the results table
 st.markdown('<h3 class="rtl center">خلاصه وضعیت واحدها</h3>', unsafe_allow_html=True)
-st.markdown(f'<div class="rtl center">{results_df.to_html(classes="rtl-table", index=False)}</div>', unsafe_allow_html=True)
-
-# Calculate total remaining units
-total_remain_units = sum(remaining_units.values())
+# st.markdown(f'<div class="rtl center">{results_df.to_html(classes="rtl-table", index=False)}</div>', unsafe_allow_html=True)
+results_df = results_df[results_df.columns[::-1]]
+st.dataframe(results_df, hide_index=True)
 
 # Display totals
+total_remain_units = sum(remaining_units.values())
 st.markdown(f'<h3 class="rtl center" style="color: blue;">جمع کل واحدهای گذرانده: {total_units}</h3>', unsafe_allow_html=True)
 st.markdown(f'<h3 class="rtl center" style="color: blue;">جمع کل واحدهای مانده: {total_remain_units}</h3>', unsafe_allow_html=True)
 
-# Filter remaining courses
+# Filter remaining courses and display
 remaining_courses_df = filtered_df[~filtered_df['Course Name'].isin(selected_courses)]
-
-# Rename the columns for the remaining courses
 remaining_courses_df.rename(columns=new_column_names, inplace=True)
+remaining_courses_df = remaining_courses_df.sort_values(by='نوع درس')
 
-# Display remaining courses
+
+
 st.markdown('<h3 class="rtl center">دروس باقیمانده</h3>', unsafe_allow_html=True)
-st.markdown(f'<div class="rtl center">{remaining_courses_df.to_html(classes="rtl-table", index=False)}</div>', unsafe_allow_html=True)
+# st.markdown(f'<div class="rtl center">{remaining_courses_df.to_html(classes="rtl-table", index=False)}</div>', unsafe_allow_html=True)
+st.dataframe(remaining_courses_df, hide_index=True)
 
 
-# manager_email = 'pargaracademy@gmail.com'
+# Reverse the columns
+# remaining_courses_df = remaining_courses_df[remaining_courses_df.columns[::-1]]
 
-
-# # Function to send email
-# def send_email(subject, body, to):
-#     msg = MIMEMultipart()
-#     msg['From'] = manager_email
-#     msg['To'] = to
-#     msg['Subject'] = subject
-#     msg.attach(MIMEText(body, 'html'))
-#     try:
-#         with smtplib.SMTP('smtp.gmail.com', 587) as server:
-#             server.starttls()
-#             server.login(manager_email, '')  # Use your App Password here
-#             server.send_message(msg)
-#         return True
-#     except smtplib.SMTPAuthenticationError as e:
-#         st.error(f"Authentication error: {e}")
-#         return False
-#     except Exception as e:
-#         st.error(f"An error occurred: {e}")
-#         return False
-
-# # Your existing Streamlit app code here
-
-# # Generate email content
-# email_subject = "خلاصه وضعیت دانشجو"
-# email_body = f"""
-# <h3>خلاصه وضعیت واحدها</h3>
-# {results_df.to_html(classes="rtl-table", index=False)}
-# <h3>جمع کل واحدهای گذرانده: {total_units}</h3>
-# <h3>جمع کل واحدهای مانده: {total_remain_units}</h3>
-# <h3>دروس باقیمانده</h3>
-# {remaining_courses_df.to_html(classes="rtl-table", index=False)}
-# """
-
-# # Email sending section
-# st.markdown('<h3 class="rtl center">ارسال به مدیر گروه</h3>', unsafe_allow_html=True)
-# email_to = st.text_input('آدرس ایمیل مدیر گروه', manager_email)
-# if st.button('ارسال ایمیل'):
-#     if send_email(email_subject, email_body, [email_to]):
-#         st.success('ایمیل با موفقیت ارسال شد.')
+# Button to download the PDF
+if st.button('Generate PDF'):
+    pdf_buffer = create_pdf(remaining_courses_df)
+    st.download_button(
+        label='Download PDF',
+        data=pdf_buffer,
+        file_name='dataframe.pdf',
+        mime='application/pdf'
+    )
