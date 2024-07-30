@@ -5,9 +5,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.font_manager as fm
 import arabic_reshaper
 from bidi.algorithm import get_display
-
 import io
-
 
 # Load Persian font
 font_path = 'Iranian Sans.ttf'  # Replace with the path to your Persian font file
@@ -20,8 +18,9 @@ def process_persian_text(text):
         return get_display(reshaped_text)
     return text
 
+# Function to create a PDF from the DataFrame
 def create_pdf(dataframe):
-    # Apply the function to the entire DataFrame
+    # Apply the Persian text processing function to the entire DataFrame
     processed_df = dataframe.applymap(process_persian_text)
     processed_columns = [process_persian_text(col) for col in dataframe.columns]
 
@@ -38,7 +37,7 @@ def create_pdf(dataframe):
         # Set font properties and style
         the_table.auto_set_font_size(False)
         the_table.set_fontsize(12)
-        the_table.auto_set_column_width(col=[i for i in range(len(processed_columns))])
+        the_table.auto_set_column_width(col=list(range(len(processed_columns))))
 
         # Style table cells
         for key, cell in the_table.get_celld().items():
@@ -56,15 +55,12 @@ def create_pdf(dataframe):
 def load_data():
     return pd.read_csv('courses.csv')
 
-
 # Load and process data
 df = load_data()
 df['Total Units'] = df['Theoretical Units'] + df['Practical Units']
 
 # Reverse column order from L2R to R2L
 df = df[df.columns[::-1]]
-
-
 
 # Define the required units for each course type
 required_units = {
@@ -120,7 +116,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-
 # Display titles
 st.markdown('<h1 class="rtl center">دانشگاه آزاد اسلامی واحد داراب</h1>', unsafe_allow_html=True)
 st.markdown('<h2 class="rtl center">چک لیست انتخاب واحد</h2>', unsafe_allow_html=True)
@@ -157,9 +152,8 @@ st.markdown('<h3 class="rtl center">دروس گذرانده</h3>', unsafe_allow_
 
 # Container for centering the table
 st.markdown('<div class="dataframe-container">', unsafe_allow_html=True)
-st.dataframe(df_to_show, hide_index=True,use_container_width=True)
+st.dataframe(df_to_show, hide_index=True, use_container_width=True)
 st.markdown('</div>', unsafe_allow_html=True)
-
 
 # Calculate total units
 total_units = selected_df['Total Units'].sum()
@@ -177,14 +171,11 @@ results_df = pd.DataFrame({
     'واحد مانده': remaining_units.values()
 })
 st.markdown('<h3 class="rtl center">خلاصه وضعیت واحدها</h3>', unsafe_allow_html=True)
-# st.markdown(f'<div class="rtl center">{results_df.to_html(classes="rtl-table", index=False)}</div>', unsafe_allow_html=True)
 results_df = results_df[results_df.columns[::-1]]
 
-
 st.markdown('<div class="dataframe-container">', unsafe_allow_html=True)
-st.dataframe(results_df, hide_index=True,use_container_width=True)
+st.dataframe(results_df, hide_index=True, use_container_width=True)
 st.markdown('</div>', unsafe_allow_html=True)
-
 
 # Display totals
 total_remain_units = sum(remaining_units.values())
@@ -196,13 +187,8 @@ remaining_courses_df = filtered_df[~filtered_df['Course Name'].isin(selected_cou
 remaining_courses_df.rename(columns=new_column_names, inplace=True)
 remaining_courses_df = remaining_courses_df.sort_values(by='نوع درس')
 
-
-
 st.markdown('<h3 class="rtl center">دروس باقیمانده</h3>', unsafe_allow_html=True)
-st.dataframe(remaining_courses_df, hide_index=True,use_container_width=True)
-
-# Reverse the columns
-# remaining_courses_df = remaining_courses_df[remaining_courses_df.columns[::-1]]
+st.dataframe(remaining_courses_df, hide_index=True, use_container_width=True)
 
 # Button to download the PDF
 if st.button('Generate PDF'):
