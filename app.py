@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+# from matplotlib.gridspec import GridSpec
 import matplotlib.font_manager as fm
 import arabic_reshaper
 from bidi.algorithm import get_display
@@ -120,6 +121,9 @@ st.markdown("""
 st.markdown('<h1 class="rtl center">دانشگاه آزاد اسلامی واحد داراب</h1>', unsafe_allow_html=True)
 st.markdown('<h2 class="rtl center">چک لیست انتخاب واحد</h2>', unsafe_allow_html=True)
 
+# Input text box for student number
+student_number = st.text_input("شماره دانشجویی:")
+
 # Stage Selection
 stage = st.selectbox('انتخاب مقطع', df['Stage'].unique())
 
@@ -131,6 +135,8 @@ selected_courses = st.multiselect('انتخاب دروس گذرانده', filter
 
 # Filter selected courses
 selected_df = filtered_df[filtered_df['Course Name'].isin(selected_courses)]
+
+# Create a copy of the selected DataFrame
 df_to_show = selected_df.copy()
 
 # Define and rename columns
@@ -145,15 +151,18 @@ new_column_names = {
     'Total Units': 'جمع واحدها'
 }
 
-df_to_show.rename(columns=new_column_names, inplace=True)
+# # Display selected courses ######################
+# df_to_show.rename(columns=new_column_names, inplace=True)
 
-# Display selected courses
-st.markdown('<h3 class="rtl center">دروس گذرانده</h3>', unsafe_allow_html=True)
+# st.markdown('<h3 class="rtl center">دروس گذرانده</h3>', unsafe_allow_html=True)
 
-# Container for centering the table
-st.markdown('<div class="dataframe-container">', unsafe_allow_html=True)
-st.dataframe(df_to_show, hide_index=True, use_container_width=True)
-st.markdown('</div>', unsafe_allow_html=True)
+# # Select all columns starting from the second column onward
+# df_to_show = df_to_show.iloc[:, :-1]
+
+# # Container for centering the table
+# st.markdown('<div class="dataframe-container">', unsafe_allow_html=True)
+# st.dataframe(df_to_show, hide_index=True, use_container_width=True)
+# st.markdown('</div>', unsafe_allow_html=True)
 
 # Calculate total units
 total_units = selected_df['Total Units'].sum()
@@ -163,6 +172,14 @@ units_by_type = selected_df.groupby('Course Type')['Total Units'].sum().reindex(
 remaining_units = {course_type: required_units[stage][course_type] - units_by_type[course_type]
                    for course_type in required_units[stage].keys()}
 
+total_remain_units = sum(remaining_units.values())
+total_required_units = sum(required_units[stage].values())
+
+# Display totals
+st.markdown(f'<h3 class="rtl center" style="color: blue;">جمع کل واحدهای گذرانده: {total_units}</h3>', unsafe_allow_html=True)
+st.markdown(f'<h3 class="rtl center" style="color: blue;">جمع کل واحدهای مانده: {total_remain_units}</h3>', unsafe_allow_html=True)
+
+
 # Create and display the results DataFrame
 results_df = pd.DataFrame({
     'نوع درس': required_units[stage].keys(),
@@ -170,6 +187,14 @@ results_df = pd.DataFrame({
     'واحد الزامی': required_units[stage].values(),
     'واحد مانده': remaining_units.values()
 })
+
+
+
+results_df.loc[len(results_df)] = ['جــــــــمــــــــع کــــــــــــل', 
+                                   total_units, 
+                                   total_required_units, 
+                                   total_remain_units]
+
 st.markdown('<h3 class="rtl center">خلاصه وضعیت واحدها</h3>', unsafe_allow_html=True)
 results_df = results_df[results_df.columns[::-1]]
 
@@ -177,25 +202,26 @@ st.markdown('<div class="dataframe-container">', unsafe_allow_html=True)
 st.dataframe(results_df, hide_index=True, use_container_width=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Display totals
-total_remain_units = sum(remaining_units.values())
-st.markdown(f'<h3 class="rtl center" style="color: blue;">جمع کل واحدهای گذرانده: {total_units}</h3>', unsafe_allow_html=True)
-st.markdown(f'<h3 class="rtl center" style="color: blue;">جمع کل واحدهای مانده: {total_remain_units}</h3>', unsafe_allow_html=True)
-
 # Filter remaining courses and display
 remaining_courses_df = filtered_df[~filtered_df['Course Name'].isin(selected_courses)]
 remaining_courses_df.rename(columns=new_column_names, inplace=True)
-remaining_courses_df = remaining_courses_df.sort_values(by=['نوع درس', 'واحد عملی'], ascending=[True, False])
+# remaining_courses_df = remaining_courses_df.drop(['مقطع'], axis=1)
+# Select all columns starting from the second column onward
+remaining_courses_df = remaining_courses_df.iloc[:, :-1]
+remaining_courses_df = remaining_courses_df.sort_values(by=['پیشنیاز', 'نوع درس', 'واحد عملی'], ascending=[False, True, False])
+
 
 st.markdown('<h3 class="rtl center">دروس باقیمانده</h3>', unsafe_allow_html=True)
 st.dataframe(remaining_courses_df, hide_index=True, use_container_width=True)
 
+
 # Button to download the PDF
 if st.button('Generate PDF'):
     pdf_buffer = create_pdf(remaining_courses_df)
+    
     st.download_button(
         label='Download PDF',
         data=pdf_buffer,
-        file_name='dataframe.pdf',
+        file_name = student_number + '.pdf' if student_number else 'output.pdf',
         mime='application/pdf'
     )
