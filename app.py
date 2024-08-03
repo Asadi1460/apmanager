@@ -41,7 +41,7 @@ def create_pdf(dataframe):
         the_table.auto_set_column_width(col=list(range(len(processed_columns))))
 
         # Style table cells
-        for key, cell in the_table.get_celld().items():
+        for ـ, cell in the_table.get_celld().items():
             cell.set_text_props(fontproperties=persian_font)
             cell.set_edgecolor('black')
             cell.set_linewidth(1)
@@ -142,6 +142,7 @@ df_to_show = selected_df.copy()
 # Define and rename columns
 new_column_names = {
     'Stage': 'مقطع',
+    'Code': 'کد درس',
     'Course Name': 'نام درس',
     'Prerequisites': 'پیشنیاز',
     'Theoretical Units': 'واحد نظری',
@@ -208,7 +209,14 @@ remaining_courses_df.rename(columns=new_column_names, inplace=True)
 # remaining_courses_df = remaining_courses_df.drop(['مقطع'], axis=1)
 # Select all columns starting from the second column onward
 remaining_courses_df = remaining_courses_df.iloc[:, :-1]
-remaining_courses_df = remaining_courses_df.sort_values(by=['پیشنیاز', 'نوع درس', 'واحد عملی'], ascending=[False, True, False])
+
+sort_dict = {
+    'نوع درس': True, 
+    'واحد عملی' : False,
+    'پیشنیاز': False,
+}
+
+remaining_courses_df = remaining_courses_df.sort_values(by=list(sort_dict.keys()), ascending=list(sort_dict.values()))
 
 
 st.markdown('<h3 class="rtl center">دروس باقیمانده</h3>', unsafe_allow_html=True)
@@ -225,3 +233,11 @@ if st.button('Generate PDF'):
         file_name = student_number + '.pdf' if student_number else 'output.pdf',
         mime='application/pdf'
     )
+
+st.markdown('<h6 class="rtl center">برنامه‌نویس:  دکتر محمد علی اسدی</h6>', unsafe_allow_html=True)
+telegram_id = '@drasadi277'
+phone_no = '09393338100'
+st.markdown(f'<h6 class="rtl center">تلفن: {phone_no}</h6>', unsafe_allow_html=True)
+st.markdown(f'<h6 class="center">ID: {telegram_id}</h6>', unsafe_allow_html=True)
+
+
