@@ -63,27 +63,6 @@ df['Total Units'] = df['Theoretical Units'] + df['Practical Units']
 # Reverse column order from L2R to R2L
 df = df[df.columns[::-1]]
 
-# Define the required units for each course type
-required_units = {
-    'کاردانی': {
-        'پیش دانشگاهی': 4,
-        'جبرانی': 0,
-        'مقطع قبلی': 0,
-        'عمومی': 18,
-        'اختیاری': 0,
-        'تربیتی': 14,
-        'تخصصی': 43,
-    },
-    'کارشناسی': {
-        'پیش دانشگاهی': 0,
-        'جبرانی': 8,
-        'مقطع قبلی': 4,
-        'عمومی': 10,
-        'اختیاری': 10,
-        'تربیتی': 9,
-        'تخصصی': 43,
-    }
-}
 
 # Use custom CSS for right-to-left direction and centering elements
 st.markdown("""
@@ -102,17 +81,18 @@ st.markdown("""
         margin-right: auto;
         table-align: center;
         width: 95%;
-        font-size: 13px;
+        font-size: 14px;
     }
     .dataframe-container {
         display: flex;
         justify-content: center;
     }
-    .dataframe {
+    .dataframe, .dataframe th, .dataframe td {
         text-align: center;
     }
-    .dataframe th, .dataframe td {
-        text-align: center;
+    .stTextInput, .stSelectbox, .stRadio, .stMultiSelect{
+    direction: rtl;
+    text-align: right;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -127,8 +107,40 @@ student_number = st.text_input("شماره دانشجویی:")
 # Stage Selection
 stage = st.selectbox('انتخاب مقطع', df['Stage'].unique())
 
+
+# Creating radio buttons
+related_major = 'مرتبط'
+if stage == 'کارشناسی':
+    related_major = st.radio('نوع مدرک کاردانی را انتخاب کنید:', ['مرتبط', 'غیرمرتبط'], index=1, horizontal=True)
+
+
+# Define the required units for each course type
+required_units = {
+    'کاردانی': {
+        'پیش دانشگاهی': 4,
+        'جبرانی': 0,
+        'مقطع قبلی': 0,
+        'عمومی': 18,
+        'اختیاری': 0,
+        'تربیتی': 14,
+        'تخصصی': 43,
+    },
+    'کارشناسی': {
+        'پیش دانشگاهی': 0,
+        'جبرانی': 8 if related_major == 'غیرمرتبط' else 0,
+        'مقطع قبلی': 4,
+        'عمومی': 10,
+        'اختیاری': 10,
+        'تربیتی': 9,
+        'تخصصی': 43,
+    }
+}
+
 # Filter courses based on the selected stage
 filtered_df = df[df['Stage'] == stage]
+
+if related_major == 'مرتبط':
+    filtered_df = filtered_df[~(filtered_df['Course Type'] == 'جبرانی')]
 
 # Course Selection
 selected_courses = st.multiselect('انتخاب دروس گذرانده', filtered_df['Course Name'])
@@ -178,7 +190,7 @@ total_required_units = sum(required_units[stage].values())
 
 # Display totals
 st.markdown(f'<h3 class="rtl center" style="color: blue;">جمع کل واحدهای گذرانده: {total_units}</h3>', unsafe_allow_html=True)
-st.markdown(f'<h3 class="rtl center" style="color: blue;">جمع کل واحدهای مانده: {total_remain_units}</h3>', unsafe_allow_html=True)
+st.markdown(f'<h3 class="rtl center" style="color: red;">جمع کل واحدهای مانده: {total_remain_units}</h3>', unsafe_allow_html=True)
 
 
 # Create and display the results DataFrame
@@ -204,7 +216,7 @@ st.dataframe(results_df, hide_index=True, use_container_width=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
 # Filter remaining courses and display
-remaining_courses_df = filtered_df[~filtered_df['Course Name'].isin(selected_courses)]
+remaining_courses_df = filtered_df[~filtered_df['Course Name'].isin(selected_courses)].copy()
 remaining_courses_df.rename(columns=new_column_names, inplace=True)
 # remaining_courses_df = remaining_courses_df.drop(['مقطع'], axis=1)
 # Select all columns starting from the second column onward
