@@ -1,28 +1,328 @@
+import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+# from matplotlib.gridspec import GridSpec
+import matplotlib.font_manager as fm
 import arabic_reshaper
 from bidi.algorithm import get_display
-from weasyprint import HTML
+import io
 
-# Sample DataFrame
-data = {
-    'العمود1': [1, 2, 3, 4],
-    'العمود2': [5, 6, 7, 8]
+# Load Persian font
+font_path = 'Iranian Sans.ttf'  # Replace with the path to your Persian font file
+persian_font = fm.FontProperties(fname=font_path)
+
+# Function to reshape and bidi-process Persian text
+def process_persian_text(text):
+    if isinstance(text, str):
+        reshaped_text = arabic_reshaper.reshape(text)
+        return get_display(reshaped_text)
+    return text
+
+# Function to create a PDF from the DataFrame
+def create_pdf(dataframe):
+    # Apply the Persian text processing function to the entire DataFrame
+    processed_df = dataframe.applymap(process_persian_text)
+    processed_columns = [process_persian_text(col) for col in dataframe.columns]
+
+    buffer = io.BytesIO()
+    with PdfPages(buffer) as pdf:
+        fig, ax = plt.subplots(figsize=(8.27, 11.69))  # A4 size in inches
+        
+        ax.axis('tight')
+        ax.axis('off')
+
+        # Create table with processed DataFrame
+        the_table = ax.table(cellText=processed_df.values, colLabels=processed_columns, cellLoc='right', loc='center')
+
+        # Set font properties and style
+        the_table.auto_set_font_size(False)
+        the_table.set_fontsize(12)
+        the_table.auto_set_column_width(col=list(range(len(processed_columns))))
+
+        # Style table cells
+        for ـ, cell in the_table.get_celld().items():
+            cell.set_text_props(fontproperties=persian_font)
+            cell.set_edgecolor('black')
+            cell.set_linewidth(1)
+
+        pdf.savefig(fig, bbox_inches='tight')
+        plt.close(fig)
+    buffer.seek(0)
+    return buffer
+
+# Cache the data loading function
+@st.cache_data
+def load_data():
+    return pd.read_csv('courses.csv')
+
+# Load and process data
+df = load_data()
+df['Total Units'] = df['Theoretical Units'] + df['Practical Units']
+
+# Reverse column order from L2R to R2L
+df = df[df.columns[::-1]]
+
+# Initialize session state for semester data
+if 'semester_data' not in st.session_state:
+    st.session_state.semester_data = {}
+if 'selected_courses_overall' not in st.session_state:
+    st.session_state.selected_courses_overall = set()
+
+# Use custom CSS for right-to-left direction and centering elements
+st.markdown("""
+    <style>
+    .rtl {
+        direction: rtl;
+        text-align: right;
+    }
+    .center {
+        text-align: center;
+    }
+    .rtl-table {
+        direction: rtl;
+        text-align: right;
+        margin-left: auto;
+        margin-right: auto;
+        table-align: center;
+        width: 95%;
+        font-size: 14px;
+    }
+    .dataframe-container {
+        display: flex;
+        justify-content: center;
+    }
+    .dataframe, .dataframe th, .dataframe td {
+        text-align: center;
+    }
+    .stTextInput, .stSelectbox, .stRadio, .stMultiSelect{
+    direction: rtl;
+    text-align: right;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# Display titles
+st.markdown('<h1 class="rtl center">دانشگاه آزاد اسلامی واحد داراب</h1>', unsafe_allow_html=True)
+st.markdown('<h2 class="rtl center">چک لیست انتخاب واحد</h2>', unsafe_allow_html=True)
+
+# Input text box for student number
+student_number = st.text_input("شماره دانشجویی:")
+
+# Stage Selection
+stage = st.selectbox('انتخاب مقطع', df['Stage'].unique())
+
+
+# Creating radio buttons
+related_major = 'مرتبط'
+if stage == 'کارشناسی':
+    related_major = st.radio('نوع مدرک کاردانی را انتخاب کنید:', ['مرتبط', 'غیرمرتبط'], index=1, horizontal=True)
+
+
+# Define the required units for each course type
+required_units = {
+    'کاردانی': {
+        'پیش دانشگاهی': 4,
+        'جبرانی': 0,
+        'مقطع قبلی': 0,
+        'عمومی': 18,
+        'اختیاری': 0,
+        'تربیتی': 14,
+        'تخصصی': 43,
+    },
+    'کارشناسی': {
+        'پیش دانشگاهی': 0,
+        'جبرانی': 8 if related_major == 'غیرمرتبط' else 0,
+        'مقطع قبلی': 4,
+        'عمومی': 10,
+        'اختیاری': 10,
+        'پایه': 9,
+        'تخصصی': 43,
+    }
 }
-df = pd.DataFrame(data)
 
-# Convert DataFrame to HTML with RTL support
-def dataframe_to_html_rtl(df):
-    html = df.to_html(index=False, justify='right')  # Right-align the text
-    reshaped_html = arabic_reshaper.reshape(html)  # Reshape HTML
-    display_html = get_display(reshaped_html)  # Display HTML correctly
-    return display_html
+# Filter courses based on the selected stage
+filtered_df = df[df['Stage'] == stage]
 
-# Generate HTML for DataFrame
-html_content = dataframe_to_html_rtl(df)
+if related_major == 'مرتبط':
+    filtered_df = filtered_df[~(filtered_df['Course Type'] == 'جبرانی')]
 
-# Create PDF from HTML
-pdf = HTML(string=html_content).write_pdf()
 
-# Save the PDF to a file
-with open('output_rtl.pdf', 'wb') as f:
-    f.write(pdf)
+# انتخاب ترم
+semester = st.selectbox('انتخاب ترم', ['ترم ۱', 'ترم ۲', 'ترم ۳', 'ترم ۴', 'ترم ۵', 'ترم ۶', 'ترم ۷', 'ترم ۸'])
+
+# محاسبه دروس باقی‌مانده
+remaining_courses = [course for course in filtered_df['Course Name'] if course not in st.session_state.selected_courses_overall]
+
+# انتخاب دروس ترم
+selected_courses = st.multiselect('انتخاب دروس برای ' + semester, remaining_courses)
+
+# دکمه برای اضافه کردن دروس به ترم
+if st.button('اضافه کردن دروس به ' + semester):
+    st.session_state.semester_data[semester] = selected_courses
+    st.session_state.selected_courses_overall.update(selected_courses)
+    st.success('دروس با موفقیت به ' + semester + ' اضافه شدند!')
+
+#################################
+
+# نمایش جدول دروس هر ترم با جمع‌بندی واحدها بر اساس نوع درس
+st.write("**دروس انتخاب شده برای هر ترم:**")
+
+# ساخت DataFrame خالی برای ذخیره داده‌های دروس انتخابی
+selected_courses_data = []
+
+for sem, courses in st.session_state.semester_data.items():
+    st.write(f'{sem}: {", ".join(courses)}')
+    
+    for course in courses:
+        course_info = filtered_df[filtered_df['Course Name'] == course]
+        if not course_info.empty:
+            course_type = course_info.iloc[0]['Course Type']
+            theoretical_units = course_info.iloc[0]['Theoretical Units']
+            practical_units = course_info.iloc[0]['Practical Units']
+            selected_courses_data.append({
+                'ترم': sem,
+                'نام درس': course,
+                'نوع درس': course_type,
+                'واحد نظری': theoretical_units,
+                'واحد عملی': practical_units
+            })
+
+# ایجاد DataFrame از داده‌های انتخابی
+selected_courses_df = pd.DataFrame(selected_courses_data)
+
+if not selected_courses_df.empty:
+    # گروه‌بندی و محاسبه جمع واحدهای نظری و عملی بر اساس نوع درس برای هر ترم
+    summary_df = selected_courses_df.groupby(['ترم']).agg(
+        جمع_واحدهای_نظری=pd.NamedAgg(column='واحد نظری', aggfunc='sum'),
+        جمع_واحد_عملی_عمومی=pd.NamedAgg(column='واحد عملی', aggfunc=lambda x: x[selected_courses_df['نوع درس'] == 'عمومی'].sum()),
+        جمع_واحد_عملی_پایه=pd.NamedAgg(column='واحد عملی', aggfunc=lambda x: x[selected_courses_df['نوع درس'] == 'پایه'].sum()),
+        جمع_واحد_عملی_اصلی=pd.NamedAgg(column='واحد عملی', aggfunc=lambda x: x[selected_courses_df['نوع درس'] == 'اصلی'].sum()),
+        جمع_واحد_عملی_تخصصی=pd.NamedAgg(column='واحد عملی', aggfunc=lambda x: x[selected_courses_df['نوع درس'] == 'تخصصی'].sum())
+    ).reset_index()
+    
+
+    # محاسبه جمع کل واحدها برای هر ترم
+    summary_df['جمع کل واحدها'] = summary_df[['جمع_واحدهای_نظری',
+                                              'جمع_واحد_عملی_عمومی',
+                                              'جمع_واحد_عملی_پایه',
+                                              'جمع_واحد_عملی_اصلی',
+                                              'جمع_واحد_عملی_تخصصی']].sum(axis=1)
+    
+    # نمایش جدول خلاصه
+    st.write("**جدول جمع‌بندی واحدهای درسی برای هر ترم:**")
+    st.dataframe(summary_df, use_container_width=True)# , hide_index=True)
+    
+else:
+    st.write("هیچ درسی انتخاب نشده است.")
+
+
+#################################
+# Filter selected courses
+selected_df = filtered_df[filtered_df['Course Name'].isin(st.session_state.selected_courses_overall)]
+
+# Create a copy of the selected DataFrame
+df_to_show = selected_df.copy()
+
+# Define and rename columns
+new_column_names = {
+    'Stage': 'مقطع',
+    'Code': 'کد درس',
+    'Course Name': 'نام درس',
+    'Prerequisites': 'پیشنیاز',
+    'Theoretical Units': 'واحد نظری',
+    'Practical Units': 'واحد عملی',
+    'Course Type': 'نوع درس',
+    'description': 'توضیحات',
+    'Total Units': 'جمع واحدها'
+}
+
+# # Display selected courses ######################
+# df_to_show.rename(columns=new_column_names, inplace=True)
+
+# st.markdown('<h3 class="rtl center">دروس گذرانده</h3>', unsafe_allow_html=True)
+
+# # Select all columns starting from the second column onward
+# df_to_show = df_to_show.iloc[:, :-1]
+
+# # Container for centering the table
+# st.markdown('<div class="dataframe-container">', unsafe_allow_html=True)
+# st.dataframe(df_to_show, hide_index=True, use_container_width=True)
+# st.markdown('</div>', unsafe_allow_html=True)
+
+# Calculate total units
+total_units = selected_df['Total Units'].sum()
+
+# Calculate units by course type
+units_by_type = selected_df.groupby('Course Type')['Total Units'].sum().reindex(required_units[stage].keys(), fill_value=0)
+remaining_units = {course_type: required_units[stage][course_type] - units_by_type[course_type]
+                   for course_type in required_units[stage].keys()}
+
+total_remain_units = sum(remaining_units.values())
+total_required_units = sum(required_units[stage].values())
+
+# Display totals
+st.markdown(f'<h3 class="rtl center" style="color: blue;">جمع کل واحدهای گذرانده: {total_units}</h3>', unsafe_allow_html=True)
+st.markdown(f'<h3 class="rtl center" style="color: red;">جمع کل واحدهای مانده: {total_remain_units}</h3>', unsafe_allow_html=True)
+
+
+# Create and display the results DataFrame
+results_df = pd.DataFrame({
+    'نوع درس': required_units[stage].keys(),
+    'واحد گذرانده': units_by_type.values,
+    'واحد الزامی': required_units[stage].values(),
+    'واحد مانده': remaining_units.values()
+})
+
+
+
+results_df.loc[len(results_df)] = ['جــــــــمــــــــع کــــــــــــل', 
+                                   total_units, 
+                                   total_required_units, 
+                                   total_remain_units]
+
+st.markdown('<h3 class="rtl center">خلاصه وضعیت واحدها</h3>', unsafe_allow_html=True)
+results_df = results_df[results_df.columns[::-1]]
+
+st.markdown('<div class="dataframe-container">', unsafe_allow_html=True)
+st.dataframe(results_df, hide_index=True, use_container_width=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Filter remaining courses and display
+remaining_courses_df = filtered_df[~filtered_df['Course Name'].isin(st.session_state.selected_courses_overall)].copy()
+remaining_courses_df.rename(columns=new_column_names, inplace=True)
+# remaining_courses_df = remaining_courses_df.drop(['مقطع'], axis=1)
+# Select all columns starting from the second column onward
+remaining_courses_df = remaining_courses_df.iloc[:, :-1]
+
+sort_dict = {
+    'نوع درس': True, 
+    'واحد عملی' : False,
+    'پیشنیاز': False,
+}
+
+remaining_courses_df = remaining_courses_df.sort_values(by=list(sort_dict.keys()), ascending=list(sort_dict.values()))
+
+
+st.markdown('<h3 class="rtl center">دروس باقیمانده</h3>', unsafe_allow_html=True)
+st.dataframe(remaining_courses_df, hide_index=True, use_container_width=True)
+
+
+# Button to download the PDF
+if st.button('Generate PDF'):
+    pdf_buffer = create_pdf(remaining_courses_df)
+    
+    st.download_button(
+        label='Download PDF',
+        data=pdf_buffer,
+        file_name = student_number + '.pdf' if student_number else 'output.pdf',
+        mime='application/pdf'
+    )
+
+st.markdown('<h6 class="rtl center">برنامه‌نویس:  دکتر محمد علی اسدی</h6>', unsafe_allow_html=True)
+telegram_id = '@drasadi277'
+phone_no = '09393338100'
+st.markdown(f'<h6 class="rtl center">تلفن: {phone_no}</h6>', unsafe_allow_html=True)
+st.markdown(f'<h6 class="center">ID: {telegram_id}</h6>', unsafe_allow_html=True)
+
+
