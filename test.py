@@ -166,13 +166,13 @@ if st.button('اضافه کردن دروس به ' + semester):
 #################################
 
 # نمایش جدول دروس هر ترم با جمع‌بندی واحدها بر اساس نوع درس
-st.write("**دروس انتخاب شده برای هر ترم:**")
+# st.write("**دروس انتخاب شده برای هر ترم:**")
 
 # ساخت DataFrame خالی برای ذخیره داده‌های دروس انتخابی
 selected_courses_data = []
 
 for sem, courses in st.session_state.semester_data.items():
-    st.write(f'{sem}: {", ".join(courses)}')
+    # st.write(f'{sem}: {", ".join(courses)}')
     
     for course in courses:
         course_info = filtered_df[filtered_df['Course Name'] == course]
@@ -211,7 +211,7 @@ if not selected_courses_df.empty:
     
     # نمایش جدول خلاصه
     st.write("**جدول جمع‌بندی واحدهای درسی برای هر ترم:**")
-    st.dataframe(summary_df, use_container_width=True)# , hide_index=True)
+    st.dataframe(summary_df.transpose(), use_container_width=True)# , hide_index=True)
     
 else:
     st.write("هیچ درسی انتخاب نشده است.")
