@@ -171,6 +171,10 @@ os.remove(f'{main_path}report{std_no}.csv')
 
 courses_df = pd.read_csv('courses.csv')
 
+courses_df = courses_df.drop(courses_df[courses_df['Course Name'].isin(['اصول بهداشت و کمک‌های اولیه ***', 'جامعه شناسی آموزش و پرورش ***'])].index)
+
+# print(courses_df[courses_df['Course Type'] == 'اختیاری'])
+
 courses_df['Course Type'].unique()
 
 # print(type(reports_df['نیمسال'][0]))
@@ -191,7 +195,7 @@ reports_df.drop(['كد ارائه', 'تعداد ساعت نظري', 'تعداد 
    #  'وضعيت حذف درس',
        'نمره با ضريب',
        'توضيحات'], axis=1, inplace=True)
-reports_df.columns
+# reports_df.columns
 
 
 # Define the degree level (for now: کاردانی)
@@ -216,7 +220,15 @@ merged_df = pd.merge(courses_df[courses_df['Stage'] == degree_level],
                      how='left')
 
 
-merged_df.drop(['Stage', 'كد درس', 'نام درس', 'description', 'تعداد واحد نظري', 'تعداد واحد عملي', 'نوع درس رشته'], axis=1)
+# print(merged_df.columns)
+
+
+merged_df.drop(['Stage', 'كد درس', 'نام درس', 'description', 'تعداد واحد نظري', 'تعداد واحد عملي', 'نوع درس رشته'], axis=1,inplace=True)
+
+# print(merged_df['Course Type'] )
+
+# print(merged_df)
+
 
 
 # 3. Sum theoretical units per term
@@ -366,6 +378,10 @@ pdf.output(main_path + f"student_report{std_no}.pdf")
 print("PDF generated successfully!")
 
 
+passed_courses_df = merged_df[~merged_df['نمره'].isna()][['Code', 'Course Type', 'Prerequisites', 'Theoretical Units', 'Practical Units']]
+optional_passed_courses_count = passed_courses_df[passed_courses_df['Course Type'] == 'اختیاری'].shape[0]
+print(optional_passed_courses_count)
+# print(passed_courses_df)
 
 
 # 3. Identify the remaining courses based on the degree level
