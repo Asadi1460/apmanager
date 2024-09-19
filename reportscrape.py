@@ -8,162 +8,98 @@ from fpdf import FPDF
 from bidi.algorithm import get_display
 import arabic_reshaper
 import warnings
+from extractpack import find_term_tables, extract_student_info
 
 # Suppress UserWarnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
-# Clearing the Screen
-os.system('clear')
+# Example usage
+# Assuming `soup` is already a BeautifulSoup object of the parsed HTML
 
-main_path = "/Users/asadi/Downloads/Pdf test/"
-std_no = "348"
-# std_no = input("Std No: ")
-file_path = main_path + f"40116820627{std_no}.htm"
-# file_path = main_path + f"168982020809.htm"
+def main():
+    # Clearing the Screen
+    os.system('clear')
 
-
-# Load the HTML content
-with open(file_path, "r", encoding="utf-8") as file:
-    content = file.read()
-
-# Parse the HTML content
-soup = BeautifulSoup(content, 'html.parser')
-
-
-
-
-info_table = soup.find('table', id="panel_FORM")
-# print(info_table)
-
-table = info_table.find("table", class_="styleClass")
-
-
-
-def extract_student_info(table):
-    # Find all <td> elements
-    tds = table.find_all("td")
+    main_path = "/Users/asadi/Downloads/Pdf test/"
+    std_no = "078"
+    # std_no = input("Std No: ")
+    html_file_path = main_path + f"40116820627{std_no}.htm"
     
-    # Initialize a dictionary to store extracted data
-    student_info = {}
+    csv_file_path = main_path + f"40116820627{std_no}.csv"
+    if os.path.exists(csv_file_path):
+        os.remove(csv_file_path)
+        print(f"File {csv_file_path} has been deleted.")
+    # Load the HTML content
+    with open(html_file_path, "r", encoding="utf-8") as file:
+        html_content = file.read()
+
+    # Parse the HTML content
+    soup = BeautifulSoup(html_content, 'html.parser')
+
+    # Extract and save data to CSV
+    find_term_tables(soup, csv_file_path)
+    student_info = extract_student_info(soup)
     
-    # Extract information in pairs (label and value)
-    for i in range(0, len(tds), 2):
-        label = tds[i].text.strip()
-        value = tds[i + 1].text.strip()
-        
-        # Map the desired fields based on label
-        if label == "نام":
-            student_info['نام'] = value
-        elif label == "نام خانوادگي":
-            student_info['نام خانوادگی'] = value
-        elif label == "شماره دانشجويي":
-            student_info['شماره دانشجویی'] = value
-        elif label == "مقطع":
-            student_info['مقطع'] = value
-        elif label == "نيمسال ورود":
-            student_info['نیمسال ورود'] = value
-        elif label == "نيمسال پذيرش":
-            student_info['نیمسال پذیرش'] = value
-        elif label == "كل تعداد واحد اخذ شده":
-            student_info['كل تعداد واحد اخذ شده'] = value
-        elif label == "كل تعداد واحد گذرانده":
-            student_info['كل تعداد واحد گذرانده'] = value
-        elif label == "كد ملي":
-            student_info['کد ملی'] = value
-        elif label == "رشته":
-            student_info['رشته'] = value
-    
-    return student_info
+    # Output the extracted information
+    print(student_info)
 
 
-# table = soup.find('table')  # Assuming you are already targeting the correct table
-student_info = extract_student_info(table)
-
-# Output the extracted information
-# print(student_info)
+if __name__ == "__main__":
+    main()
 
 
-# Extract terms info
-def extract_term_dict():
-    term_dict = {}
-    headterms = soup.find_all("caption", class_="caption")
-    term_num = 1
-    for headterm in headterms:
-        head_text = headterm.text.strip()
-        if head_text.startswith("نيمسال"):
-            term_dict[term_num] = head_text.split("-")[-1].strip()
-            term_num += 1
-    return term_dict
 
-term_dict = extract_term_dict()
-# print(term_dict)
-        
+# def find_courses(table_id, term_num, write_header=False):
+#     term_dict = extract_term_dict()
+#     print(term_dict)
 
-# Function to find the number of tables based on panel__ IDs
-def find_total_terms(soup):
-    counter = 0
-    while True:
-        table_id = f"panel__{counter:02d}"
-        # print(table_id)
-        if not soup.find('table', id=table_id):  # Stop when no table is found
-            break
-        counter += 1
-    return counter
+#     term_table = soup.find('table', id=table_id)
+#     # Find all rows in the table
+#     rows = term_table.find_all("tr")
 
-# Call the function to determine total_terms
-total_terms = find_total_terms(soup)
+#     with open(main_path + f"report{std_no}.csv", "a", newline='', encoding='utf-8') as file:
+#         csv_writer = csv.writer(file)
 
-# Print the result
-# print(f"Total terms: {total_terms}")
-
-
-def find_courses(table_id, term_num, write_header=False):
-    term_table = soup.find('table', id=table_id)
-
-    # Find all rows in the table
-    rows = term_table.find_all("tr")
-
-    with open(main_path + f"report{std_no}.csv", "a", newline='', encoding='utf-8') as file:
-        csv_writer = csv.writer(file)
-
-        for row_index, row in enumerate(rows):
-            cols = row.find_all(['td', 'th'])  # Only get table data or header cells
-            row_data = [col.text.strip() for col in cols if col.text.strip()]
+#         for row_index, row in enumerate(rows):
+#             cols = row.find_all(['td', 'th'])  # Only get table data or header cells
+#             row_data = [col.text.strip() for col in cols if col.text.strip()]
             
-            # Check if this is the header row (usually the first row)
-            if row_index == 0 and write_header:
-                # Adjust the header row by adding "ردیف" as the first element
+#             # Check if this is the header row (usually the first row)
+#             if row_index == 0 and write_header:
+#                 # Adjust the header row by adding "ردیف" as the first element
                 
-                adjusted_header = ["نیمسال"] + row_data  # Shift other elements
-                csv_writer.writerow(adjusted_header)
-                continue  # Skip to the next row after writing the header
-            elif row_index == 0:
-                continue
-            else:
-                row_data[0] = term_dict[term_num]
+#                 adjusted_header = ["نیمسال"] + row_data  # Shift other elements
+#                 csv_writer.writerow(adjusted_header)
+#                 continue  # Skip to the next row after writing the header
+#             elif row_index == 0:
+#                 continue
+#             else:
+#                 row_data[0] = term_dict[term_num]
 
             
-            # Write the row data (normal rows)
-            csv_writer.writerow(row_data)
+#             # Write the row data (normal rows)
+#             csv_writer.writerow(row_data)
 
 
-# Function to find tables with IDs like 'panel__00', 'panel__01', etc.
-def find_term_tables(total_terms):
-    tables = []
-    for i in range(total_terms):  # Adjust total_terms as needed
-        table_id = f"panel__{i:02d}"  # Dynamically create the table ID
-        if i == 0:
-            find_courses(table_id, term_num=i+1, write_header=True)
-        else:
-            find_courses(table_id, term_num=i+1)
+# # Function to find tables with IDs like 'panel__00', 'panel__01', etc.
+# def find_term_tables():
+#     # Call the function to determine total_terms
+#     total_terms = find_total_terms()
+#     # Print the result
+#     # print(f"Total terms: {total_terms}")
+#     for i in range(total_terms):  # Adjust total_terms as needed
+#         table_id = f"panel__{i:02d}"  # Dynamically create the table ID
+#         if i == 0:
+#             find_courses(table_id, term_num=i+1, write_header=True)
+#         else:
+#             find_courses(table_id, term_num=i+1)
 
 
 
-# Call the function to find tables
-tables = find_term_tables(total_terms)
 
-##################################
+
+######################################################################################################
 # Load the CSV files
 reports_df = pd.read_csv(main_path + f'report{std_no}.csv')
 
@@ -171,13 +107,25 @@ os.remove(f'{main_path}report{std_no}.csv')
 
 courses_df = pd.read_csv('courses.csv')
 
+print(courses_df.info())
+
 courses_df = courses_df.drop(courses_df[courses_df['Course Name'].isin(['اصول بهداشت و کمک‌های اولیه ***', 'جامعه شناسی آموزش و پرورش ***'])].index)
+
+related_major = input('1)مرتبط\n2)غیرمرتبط')
+related_major = 'مرتبط' if related_major == '1' else 'غیرمرتبط'
+if related_major == 'مرتبط':
+    courses_df = courses_df[~(courses_df['Course Type'] == 'جبرانی')]
 
 # print(courses_df[courses_df['Course Type'] == 'اختیاری'])
 
 courses_df['Course Type'].unique()
 
 # print(type(reports_df['نیمسال'][0]))
+
+compensatory_passed_courses_codes = courses_df[courses_df['Course Type'] == 'تخصصی-جبرانی']['Code']
+
+print(compensatory_passed_courses_codes)
+
 
 courses_df.loc[courses_df['Course Type'] == 'اصلی-تربیتی', 'Course Type'] = 'اصلی'
 courses_df.loc[courses_df['Course Type'] == 'پایه-تربیتی', 'Course Type'] = 'پایه'
@@ -212,6 +160,8 @@ passed_courses_df = reports_df[reports_df['وضعيت قبولي'] == 'پاس ش
 # We assume the 'Stage' column in courses_df holds the degree level information
 
 courses_df['Code'] = courses_df['Code'].astype('object')
+
+# print(type(courses_df['Code']))
 
 merged_df = pd.merge(courses_df[courses_df['Stage'] == degree_level], 
                      passed_courses_df, 
@@ -315,18 +265,6 @@ pdf.cell(200, 10, txt=reshape_text("گزارش وضعیت تحصیلی دانش�
 # Add some space
 pdf.ln(10)
 
-# Example student information
-# student_info = {
-#     'نام': 'زهرا',
-#     'نام خانوادگي': 'عباسي',
-#     'كد ملي': '2480588327',
-#     'شماره دانشجويي': '40116820627032',
-#     'رشته': 'آموزش و پرورش ابتدایی',
-#     'مقطع': 'کارداني ناپیوسته',
-#     'نيمسال پذيرش': 'نیمسال اول سال تحصیلی 1402-1401',
-#     'نيمسال شروع به تحصيل': '1401/07/01'
-# }
-
 
 count = 0
 for key, value in student_info.items():
@@ -378,14 +316,50 @@ pdf.output(main_path + f"student_report{std_no}.pdf")
 print("PDF generated successfully!")
 
 
-passed_courses_df = merged_df[~merged_df['نمره'].isna()][['Code', 'Course Type', 'Prerequisites', 'Theoretical Units', 'Practical Units']]
-optional_passed_courses_count = passed_courses_df[passed_courses_df['Course Type'] == 'اختیاری'].shape[0]
-print(optional_passed_courses_count)
+passed_courses_df = merged_df[~merged_df['نمره'].isna()][['Code', 'Course Name', 'Course Type', 'Prerequisites', 'Theoretical Units', 'Practical Units']]
+optional_passed_courses = passed_courses_df[passed_courses_df['Course Type'] == 'اختیاری']
+optional_passed_courses_count = optional_passed_courses.shape[0]
+print(optional_passed_courses, optional_passed_courses_count)
+
+compensatory_passed_courses = passed_courses_df[passed_courses_df['Course Type'] == 'جبرانی']
+compensatory_passed_courses_count = compensatory_passed_courses.shape[0]
+print(compensatory_passed_courses, compensatory_passed_courses_count)
 # print(passed_courses_df)
 
 
+    
+course_code = "90881"  # کد درس دفاع مقدس
+
+# اطمینان از اینکه ستون 'Code' از نوع رشته است
+passed_courses_df['Code'] = passed_courses_df['Code'].astype(str)
+
+# بررسی اینکه آیا کد درس دفاع مقدس در ستون 'Code' وجود دارد
+if passed_courses_df['Code'].str.contains(course_code).any():
+    defence_course_passed = True
+else:
+    defence_course_passed = False    
+
+
 # 3. Identify the remaining courses based on the degree level
-remaining_courses_df = merged_df[merged_df['نمره'].isna()][['Code', 'Course Name', 'Prerequisites', 'Theoretical Units', 'Practical Units']]
+remaining_courses_df = merged_df[merged_df['نمره'].isna()][['Code', 'Course Name', 'Course Type', 'Prerequisites', 'Theoretical Units', 'Practical Units']]
+
+# print(remaining_courses_df['Course Name'])
+if optional_passed_courses_count == 5 and defence_course_passed:
+    remaining_courses_df = remaining_courses_df.drop(remaining_courses_df[remaining_courses_df['Course Type'].isin(['اختیاری'])].index)
+# print(remaining_courses_df['Course Name'])
+
+# if related_major == 'مرتبط':
+#     remaining_courses_df = remaining_courses_df.drop(remaining_courses_df[remaining_courses_df['Code'].isin(compensatory_passed_courses_codes)].index)
+
+if related_major == 'مرتبط':
+    # اطمینان از اینکه ستون 'Code' و کدهای جبرانی از نوع رشته هستند
+    remaining_courses_df['Code'] = remaining_courses_df['Code'].astype(str)
+    compensatory_passed_courses_codes = compensatory_passed_courses_codes.astype(str)
+
+    # حذف دروس جبرانی پاس شده از DataFrame
+    remaining_courses_df = remaining_courses_df.drop(
+        remaining_courses_df[remaining_courses_df['Code'].isin(compensatory_passed_courses_codes)].index
+    )
 
 # print(remaining_courses_df)
 
